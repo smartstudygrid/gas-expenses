@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>FuelFlow - Quick Gas Tracker</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            fuel: {
+              50: '#f0fdf4',
+              100: '#dcfce7',
+              500: '#22c55e',
+              600: '#16a34a',
+              700: '#15803d',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Prevent zoom on double tap on mobile */
+    * {
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+    /* Hide number spinner buttons */
+    input[type=number]::-webkit-inner-spin-button, 
+    input[type=number]::-webkit-outer-spin-button { 
+      -webkit-appearance: none; 
+      margin: 0; 
+    }
+    input[type=number] {
+      -moz-appearance: textfield;
+    }
+    .safe-bottom {
+      padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans min-h-screen flex justify-center selection:bg-emerald-500 selection:text-white">
+
+  <div class="w-full max-w-md min-h-screen bg-slate-900/90 border-x border-slate-800/80 flex flex-col relative shadow-2xl">
+    
+    <!-- Top App Bar -->
+    <header class="px-5 pt-4 pb-3 flex items-center justify-between border-b border-slate-800/80 backdrop-blur-md sticky top-0 z-30 bg-slate-900/80">
+      <div class="flex items-center space-x-2.5">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+          <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-base font-bold tracking-tight text-white leading-tight">FuelFlow</h1>
+          <div class="flex items-center space-x-1.5">
+            <span id="sync-status-dot" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span id="sync-status-text" class="text-[11px] font-medium text-slate-400">Connected</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Settings Trigger -->
+      <button onclick="toggleSettingsModal(true)" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition active:scale-95" aria-label="Settings">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+      </button>
+    </header>
+
+    <main class="flex-1 pb-24 overflow-y-auto">
+      
+      <!-- SCREEN 1: QUICK ENTRY -->
+      <section id="view-entry" class="p-5 flex flex-col space-y-6">
+        <!-- Date / Time Pill -->
+        <div class="flex items-center justify-between bg-slate-800/50 border border-slate-800 px-4 py-2.5 rounded-2xl">
+          <div class="flex items-center space-x-2 text-xs text-slate-400">
+            <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+            </svg>
+            <span id="current-timestamp-display" class="font-medium">Loading time...</span>
+          </div>
+          <span class="text-[10px] font-semibold tracking-wider uppercase px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Auto Stamp</span>
+        </div>
+
+        <!-- Big Amount Input Card -->
+        <div class="bg-gradient-to-b from-slate-800/60 to-slate-800/30 border border-slate-700/60 rounded-3xl p-6 shadow-xl flex flex-col items-center justify-center relative group focus-within:border-emerald-500/60 focus-within:ring-2 focus-within:ring-emerald-500/20 transition-all">
+          <label for="amount-input" class="text-xs font-semibold text-slate-400 tracking-wider uppercase mb-2">Gas Fill-up Amount</label>
+          
+          <div class="flex items-baseline justify-center w-full my-2">
+            <span id="display-currency" class="text-3xl sm:text-4xl font-extrabold text-emerald-400 mr-2">$</span>
+            <input 
+              type="text" 
+              inputmode="decimal" 
+              pattern="[0-9]*[.,]?[0-9]*" 
+              id="amount-input" 
+              placeholder="0.00" 
+              autocomplete="off"
+              class="w-4/5 text-center text-5xl sm:text-6xl font-extrabold font-mono bg-transparent text-white placeholder-slate-600 focus:outline-none tracking-tight"
+            />
+          </div>
+          <p class="text-xs text-slate-400 mt-1">Tap above to open the number pad</p>
+        </div>
+
+        <!-- Quick Amount Pill Buttons -->
+        <div class="space-y-2">
+          <div class="flex justify-between items-center px-1">
+            <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Quick Add</span>
+            <button onclick="clearAmount()" class="text-xs text-rose-400 hover:text-rose-300 font-medium">Clear</button>
+          </div>
+          <div class="grid grid-cols-4 gap-2.5">
+            <button onclick="addAmount(10)" class="py-3 px-2 rounded-2xl bg-slate-800/80 hover:bg-slate-750 active:bg-slate-700 border border-slate-700/70 text-sm font-bold text-slate-200 shadow-sm transition active:scale-95">+10</button>
+            <button onclick="addAmount(20)" class="py-3 px-2 rounded-2xl bg-slate-800/80 hover:bg-slate-750 active:bg-slate-700 border border-slate-700/70 text-sm font-bold text-slate-200 shadow-sm transition active:scale-95">+20</button>
+            <button onclick="addAmount(50)" class="py-3 px-2 rounded-2xl bg-slate-800/80 hover:bg-slate-750 active:bg-slate-700 border border-slate-700/70 text-sm font-bold text-slate-200 shadow-sm transition active:scale-95">+50</button>
+            <button onclick="addAmount(100)" class="py-3 px-2 rounded-2xl bg-slate-800/80 hover:bg-slate-750 active:bg-slate-700 border border-slate-700/70 text-sm font-bold text-slate-200 shadow-sm transition active:scale-95">+100</button>
+          </div>
+        </div>
+
+        <!-- Optional Odometer / Station note toggle -->
+        <div class="rounded-2xl border border-slate-800 bg-slate-900/60 overflow-hidden">
+          <button type="button" onclick="toggleDetails()" class="w-full px-4 py-3 flex items-center justify-between text-left text-xs font-medium text-slate-400 hover:text-slate-200 transition">
+            <span class="flex items-center space-x-2">
+              <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+              </svg>
+              <span>Add Station Name or Odometer (Optional)</span>
+            </span>
+            <svg id="details-arrow" class="w-4 h-4 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </button>
+          <div id="details-panel" class="hidden px-4 pb-4 pt-1 space-y-3 border-t border-slate-800/60">
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-400 uppercase mb-1">Odometer / Mileage</label>
+              <input type="text" inputmode="numeric" id="input-odometer" placeholder="e.g. 54200" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500">
+            </div>
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-400 uppercase mb-1">Station / Note</label>
+              <input type="text" id="input-notes" placeholder="e.g. Shell, Highway exit 4" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500">
+            </div>
+          </div>
+        </div>
+
+        <!-- Submit Button -->
+        <button 
+          id="btn-submit"
+          onclick="handleRecordEntry()" 
+          class="w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 active:scale-[0.98] text-white font-bold text-base shadow-lg shadow-emerald-500/25 flex items-center justify-center space-x-2 transition cursor-pointer"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+          </svg>
+          <span>Save Gas Entry</span>
+        </button>
+
+        <!-- Quick Glance Box -->
+        <div class="p-4 rounded-2xl bg-slate-800/40 border border-slate-800 flex items-center justify-between">
+          <div>
+            <p class="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">Spent This Month</p>
+            <p id="glance-month-total" class="text-xl font-bold font-mono text-emerald-400 mt-0.5">$0.00</p>
+          </div>
+          <button onclick="switchTab('totals')" class="text-xs font-semibold text-emerald-400 hover:text-emerald-300 flex items-center space-x-1">
+            <span>View Full Totals</span>
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+            </svg>
+          </button>
+        </div>
+      </section>
+
+      <!-- SCREEN 2: TOTALS & ANALYTICS -->
+      <section id="view-totals" class="hidden p-5 flex flex-col space-y-5">
+        
+        <!-- Month Selector Header -->
+        <div class="flex items-center justify-between bg-slate-800/60 border border-slate-700/60 rounded-2xl p-2">
+          <button onclick="shiftMonth(-1)" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-700 active:scale-90 transition">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+            </svg>
+          </button>
+          <div class="text-center">
+            <h2 id="selected-month-label" class="font-bold text-white text-base">Loading...</h2>
+            <p id="selected-month-sub" class="text-[11px] text-slate-400">Monthly Expense Report</p>
+          </div>
+          <button onclick="shiftMonth(1)" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-700 active:scale-90 transition">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Big Highlight Metric Card -->
+        <div class="bg-gradient-to-br from-emerald-600/30 via-slate-800/80 to-teal-900/20 border border-emerald-500/30 rounded-3xl p-6 text-center shadow-lg relative overflow-hidden">
+          <div class="absolute -right-6 -bottom-6 w-28 h-28 bg-emerald-500/10 rounded-full blur-2xl"></div>
+          <p class="text-xs uppercase tracking-widest font-semibold text-emerald-400">Total Monthly Gas Cost</p>
+          <h3 id="stat-total-amount" class="text-4xl sm:text-5xl font-extrabold font-mono text-white mt-2 mb-1 tracking-tight">$0.00</h3>
+          <p id="stat-budget-hint" class="text-xs text-slate-400">Computed from all recorded fill-ups</p>
+        </div>
+
+        <!-- Small Metric Grid -->
+        <div class="grid grid-cols-2 gap-3">
+          <div class="bg-slate-800/50 border border-slate-800 rounded-2xl p-4">
+            <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Fill-Up Count</p>
+            <p id="stat-fill-count" class="text-2xl font-bold font-mono text-white mt-1">0</p>
+            <span class="text-[10px] text-slate-500">entries recorded</span>
+          </div>
+          <div class="bg-slate-800/50 border border-slate-800 rounded-2xl p-4">
+            <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Average / Fill</p>
+            <p id="stat-avg-amount" class="text-2xl font-bold font-mono text-white mt-1">$0.00</p>
+            <span class="text-[10px] text-slate-500">per visit</span>
+          </div>
+        </div>
+
+        <!-- History Records Section -->
+        <div class="space-y-3">
+          <div class="flex items-center justify-between px-1">
+            <h4 class="text-xs font-semibold uppercase tracking-wider text-slate-400">Fill-Up Entries</h4>
+            <button onclick="refreshData()" class="text-xs text-emerald-400 hover:text-emerald-300 flex items-center space-x-1">
+              <svg id="refresh-spinner" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+              </svg>
+              <span>Refresh</span>
+            </button>
+          </div>
+
+          <div id="entries-list" class="space-y-2.5">
+            <!-- Dynamic entries will be rendered here -->
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Bottom Navigation Bar -->
+    <nav class="fixed bottom-0 w-full max-w-md bg-slate-900/95 border-t border-slate-800/90 backdrop-blur-lg px-6 pt-3 safe-bottom flex justify-around items-center z-20">
+      
+      <!-- Nav Button 1: Quick Add -->
+      <button 
+        id="nav-btn-entry" 
+        onclick="switchTab('entry')" 
+        class="flex flex-col items-center space-y-1 text-emerald-400 font-semibold transition active:scale-95"
+      >
+        <div class="w-10 h-7 rounded-xl flex items-center justify-center">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+          </svg>
+        </div>
+        <span class="text-[11px] tracking-tight">Quick Add</span>
+      </button>
+
+      <!-- Nav Button 2: Totals -->
+      <button 
+        id="nav-btn-totals" 
+        onclick="switchTab('totals')" 
+        class="flex flex-col items-center space-y-1 text-slate-400 font-medium hover:text-slate-200 transition active:scale-95"
+      >
+        <div class="w-10 h-7 rounded-xl flex items-center justify-center">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+          </svg>
+        </div>
+        <span class="text-[11px] tracking-tight">Monthly Totals</span>
+      </button>
+
+    </nav>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-end sm:items-center justify-center p-4">
+      <div class="w-full max-w-sm bg-slate-900 border border-slate-700 rounded-3xl p-6 shadow-2xl space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <h3 class="font-bold text-white text-base">App Preferences</h3>
+          <button onclick="toggleSettingsModal(false)" class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Currency selection -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 uppercase mb-1.5">Currency Symbol</label>
+          <div class="grid grid-cols-4 gap-2" id="currency-chips-container">
+            <button type="button" onclick="setCurrency('SAR')" id="curr-btn-SAR" class="currency-chip py-2 rounded-xl border border-emerald-500/50 bg-emerald-500/10 text-emerald-400 font-bold text-xs">SAR</button>
+            <button type="button" onclick="setCurrency('$')" id="curr-btn-$" class="currency-chip py-2 rounded-xl border border-slate-700 text-sm font-bold bg-slate-800 hover:bg-slate-750 text-slate-300">$</button>
+            <button type="button" onclick="setCurrency('AED')" id="curr-btn-AED" class="currency-chip py-2 rounded-xl border border-slate-700 text-xs font-bold bg-slate-800 hover:bg-slate-750 text-slate-300">AED</button>
+            <button type="button" onclick="setCurrency('€')" id="curr-btn-€" class="currency-chip py-2 rounded-xl border border-slate-700 text-sm font-bold bg-slate-800 hover:bg-slate-750 text-slate-300">€</button>
+          </div>
+        </div>
+
+        <!-- Sync Button -->
+        <div class="pt-1 flex flex-col space-y-2">
+          <button onclick="refreshData(); toggleSettingsModal(false);" class="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold rounded-xl text-xs transition flex items-center justify-center space-x-1.5">
+            <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            </svg>
+            <span>Sync with Google Sheets Now</span>
+          </button>
+        </div>
+
+        <!-- Danger Zone: Reset / Clear -->
+        <div class="pt-3 border-t border-slate-800">
+          <p class="text-[11px] font-semibold uppercase tracking-wider text-rose-400 mb-2">Data Reset</p>
+          <button onclick="promptClearAllModal()" class="w-full py-2.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 font-semibold rounded-xl text-xs transition flex items-center justify-center space-x-1.5">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+            <span>Clear All Recorded Entries</span>
+          </button>
+          <p class="text-[10px] text-slate-500 mt-1.5 leading-normal">Clears local entries and removes fuel rows in your connected Google Sheet.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Clear Confirmation Modal -->
+    <div id="clear-confirm-modal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+      <div class="w-full max-w-xs bg-slate-900 border border-slate-700 rounded-3xl p-5 shadow-2xl text-center space-y-4">
+        <div class="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center mx-auto">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+        </div>
+        <div>
+          <h4 class="font-bold text-white text-base">Clear All Entries?</h4>
+          <p class="text-xs text-slate-400 mt-1">This will erase all recorded fill-ups from the app view and reset monthly totals to SAR 0.00.</p>
+        </div>
+        <div class="flex space-x-2">
+          <button onclick="dismissClearAllModal()" class="w-1/2 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold rounded-xl text-xs transition">
+            Cancel
+          </button>
+          <button onclick="executeClearAll()" class="w-1/2 py-2.5 bg-rose-500 hover:bg-rose-600 text-white font-bold rounded-xl text-xs transition shadow-lg shadow-rose-500/30">
+            Yes, Clear All
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed top-5 left-1/2 transform -translate-x-1/2 z-50 hidden transition-all duration-300 ease-out">
+      <div id="toast-body" class="flex items-center space-x-2.5 px-4 py-3 rounded-2xl shadow-xl text-xs font-semibold bg-emerald-500 text-white">
+        <span id="toast-icon">✓</span>
+        <span id="toast-message">Amount saved successfully!</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- APPLICATION LOGIC -->
+  <script>
+    // Embedded Google Apps Script Backend URL
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbywbnDtHuu-MK2ye6kaGBtGjpaPvDrs4wvlbxbpRLJfISupX5M5x-XdB5sE5psglmNh/exec';
+
+    // State management
+    const STORAGE_KEY_RECORDS = 'fuelflow_records_v2';
+    const STORAGE_KEY_SETTINGS = 'fuelflow_settings_v2';
+
+    let appSettings = {
+      currency: 'SAR'
+    };
+
+    let localRecords = [];
+    let currentSelectedDate = new Date();
+
+    // DOM Elements
+    const amountInput = document.getElementById('amount-input');
+    const displayCurrency = document.getElementById('display-currency');
+    const timeDisplay = document.getElementById('current-timestamp-display');
+    const toast = document.getElementById('toast');
+    const toastBody = document.getElementById('toast-body');
+    const toastMsg = document.getElementById('toast-message');
+    const toastIcon = document.getElementById('toast-icon');
+
+    window.addEventListener('DOMContentLoaded', () => {
+      loadSettings();
+      loadRecords();
+      updateClock();
+      setInterval(updateClock, 1000);
+      updateCurrencyVisuals();
+      renderTotalsView();
+      updateGlanceTotal();
+      
+      // Auto-fetch latest entries from your Google Sheet on launch
+      fetchRemoteRecords();
+
+      // Auto-focus amount box for fast entry when loaded
+      setTimeout(() => {
+        amountInput.focus();
+      }, 300);
+    });
+
+    function loadSettings() {
+      try {
+        const stored = localStorage.getItem(STORAGE_KEY_SETTINGS);
+        if (stored) {
+          appSettings = JSON.parse(stored);
+          if (!appSettings.currency) appSettings.currency = 'SAR';
+        }
+      } catch (e) {
+        console.warn('Could not read settings from localStorage', e);
+      }
+      updateSyncStatus(false);
+    }
+
+    function setCurrency(symbol) {
+      appSettings.currency = symbol;
+      localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(appSettings));
+      updateCurrencyVisuals();
+      renderTotalsView();
+      updateGlanceTotal();
+      highlightActiveCurrencyChip(symbol);
+      showToast(`Currency set to ${symbol}`, 'info');
+    }
+
+    function highlightActiveCurrencyChip(symbol) {
+      const chips = document.querySelectorAll('.currency-chip');
+      chips.forEach(chip => {
+        chip.className = 'currency-chip py-2 rounded-xl border border-slate-700 text-xs sm:text-sm font-bold bg-slate-800 hover:bg-slate-750 text-slate-300';
+      });
+      const activeChip = document.getElementById(`curr-btn-${symbol}`);
+      if (activeChip) {
+        activeChip.className = 'currency-chip py-2 rounded-xl border border-emerald-500/50 bg-emerald-500/10 text-emerald-400 font-bold text-xs sm:text-sm';
+      }
+    }
+
+    function updateCurrencyVisuals() {
+      const curr = appSettings.currency || 'SAR';
+      displayCurrency.textContent = curr;
+      highlightActiveCurrencyChip(curr);
+    }
+
+    function updateSyncStatus(isSyncing = false) {
+      const dot = document.getElementById('sync-status-dot');
+      const text = document.getElementById('sync-status-text');
+      if (isSyncing) {
+        dot.className = 'w-2 h-2 rounded-full bg-amber-400 animate-ping';
+        text.textContent = 'Syncing...';
+      } else {
+        dot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
+        text.textContent = 'Sheet Synced';
+      }
+    }
+
+    function updateClock() {
+      const now = new Date();
+      const options = { 
+        weekday: 'short', 
+        month: 'short', 
+        day: 'numeric', 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      };
+      timeDisplay.textContent = now.toLocaleDateString(undefined, options);
+    }
+
+    function addAmount(value) {
+      let currentVal = parseFloat(amountInput.value) || 0;
+      let newVal = (currentVal + value).toFixed(2);
+      if (newVal.endsWith('.00')) newVal = newVal.slice(0, -3);
+      amountInput.value = newVal;
+      triggerHaptic();
+    }
+
+    function clearAmount() {
+      amountInput.value = '';
+      amountInput.focus();
+      triggerHaptic();
+    }
+
+    function toggleDetails() {
+      const panel = document.getElementById('details-panel');
+      const arrow = document.getElementById('details-arrow');
+      panel.classList.toggle('hidden');
+      arrow.classList.toggle('rotate-180');
+    }
+
+    function triggerHaptic() {
+      if ('vibrate' in navigator) {
+        navigator.vibrate(12);
+      }
+    }
+
+    function switchTab(tab) {
+      const viewEntry = document.getElementById('view-entry');
+      const viewTotals = document.getElementById('view-totals');
+      const btnEntry = document.getElementById('nav-btn-entry');
+      const btnTotals = document.getElementById('nav-btn-totals');
+
+      if (tab === 'entry') {
+        viewEntry.classList.remove('hidden');
+        viewTotals.classList.add('hidden');
+        btnEntry.className = 'flex flex-col items-center space-y-1 text-emerald-400 font-semibold transition active:scale-95';
+        btnTotals.className = 'flex flex-col items-center space-y-1 text-slate-400 font-medium hover:text-slate-200 transition active:scale-95';
+        updateGlanceTotal();
+        amountInput.focus();
+      } else {
+        viewEntry.classList.add('hidden');
+        viewTotals.classList.remove('hidden');
+        btnTotals.className = 'flex flex-col items-center space-y-1 text-emerald-400 font-semibold transition active:scale-95';
+        btnEntry.className = 'flex flex-col items-center space-y-1 text-slate-400 font-medium hover:text-slate-200 transition active:scale-95';
+        renderTotalsView();
+      }
+    }
+
+    async function handleRecordEntry() {
+      const rawValue = amountInput.value.replace(',', '.').trim();
+      const amount = parseFloat(rawValue);
+
+      if (isNaN(amount) || amount <= 0) {
+        showToast('Please enter a valid amount', 'error');
+        amountInput.focus();
+        return;
+      }
+
+      const odo = document.getElementById('input-odometer').value.trim();
+      const notes = document.getElementById('input-notes').value.trim();
+      const now = new Date();
+
+      const record = {
+        id: 'rec_' + Date.now(),
+        date: now.toISOString().split('T')[0],
+        time: now.toTimeString().split(' ')[0],
+        amount: Number(amount.toFixed(2)),
+        currency: appSettings.currency || 'SAR',
+        odometer: odo || '-',
+        notes: notes || 'Fuel fill-up',
+        timestamp: now.toISOString()
+      };
+
+      // Save locally immediately
+      localRecords.unshift(record);
+      persistRecords();
+
+      // Clear input fields
+      amountInput.value = '';
+      document.getElementById('input-odometer').value = '';
+      document.getElementById('input-notes').value = '';
+
+      // Update summaries
+      updateGlanceTotal();
+      triggerHaptic();
+
+      showToast(`Recorded ${appSettings.currency} ${record.amount.toFixed(2)}`, 'success');
+
+      // Send to Google Sheets backend
+      sendToGoogleAppsScript(record);
+    }
+
+    async function sendToGoogleAppsScript(record) {
+      const submitBtn = document.getElementById('btn-submit');
+      const origText = submitBtn.innerHTML;
+      updateSyncStatus(true);
+      submitBtn.innerHTML = `
+        <svg class="animate-spin w-5 h-5 text-white" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+        </svg>
+        <span>Saving to Sheet...</span>
+      `;
+
+      try {
+        await fetch(SCRIPT_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: {
+            'Content-Type': 'text/plain;charset=utf-8'
+          },
+          body: JSON.stringify({
+            action: 'addRecord',
+            ...record
+          })
+        });
+
+        showToast('Synced to Google Sheets!', 'success');
+      } catch (err) {
+        console.error('Google Sheet sync error:', err);
+        showToast('Saved locally (Sheet sync failed)', 'warning');
+      } finally {
+        submitBtn.innerHTML = origText;
+        updateSyncStatus(false);
+      }
+    }
+
+    async function fetchRemoteRecords() {
+      const spinner = document.getElementById('refresh-spinner');
+      if (spinner) spinner.classList.add('animate-spin');
+      updateSyncStatus(true);
+
+      try {
+        const response = await fetch(`${SCRIPT_URL}?action=getRecords`);
+        if (response.ok) {
+          const data = await response.json();
+          if (Array.isArray(data.records)) {
+            localRecords = data.records;
+            persistRecords();
+            renderTotalsView();
+            updateGlanceTotal();
+          }
+        }
+      } catch (e) {
+        console.warn('Could not fetch remote records, using local cache', e);
+      } finally {
+        if (spinner) spinner.classList.remove('animate-spin');
+        updateSyncStatus(false);
+      }
+    }
+
+    function refreshData() {
+      showToast('Refreshing records...', 'info');
+      fetchRemoteRecords();
+    }
+
+    function loadRecords() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY_RECORDS);
+        if (raw) {
+          localRecords = JSON.parse(raw);
+        } else {
+          localRecords = [];
+          persistRecords();
+        }
+      } catch (e) {
+        localRecords = [];
+      }
+    }
+
+    function persistRecords() {
+      try {
+        localStorage.setItem(STORAGE_KEY_RECORDS, JSON.stringify(localRecords));
+      } catch (e) {
+        console.error('Failed to write to localStorage', e);
+      }
+    }
+
+    function promptClearAllModal() {
+      toggleSettingsModal(false);
+      document.getElementById('clear-confirm-modal').classList.remove('hidden');
+    }
+
+    function dismissClearAllModal() {
+      document.getElementById('clear-confirm-modal').classList.add('hidden');
+    }
+
+    async function executeClearAll() {
+      localRecords = [];
+      persistRecords();
+      renderTotalsView();
+      updateGlanceTotal();
+      dismissClearAllModal();
+      showToast('All local entries cleared! Starting at 0.00', 'info');
+
+      try {
+        await fetch(SCRIPT_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action: 'clearRecords' })
+        });
+        showToast('Cleared app & Google Sheet!', 'success');
+      } catch (e) {
+        console.warn('Sheet clear failed', e);
+      }
+    }
+
+    function shiftMonth(offset) {
+      currentSelectedDate.setMonth(currentSelectedDate.getMonth() + offset);
+      renderTotalsView();
+    }
+
+    function renderTotalsView() {
+      const year = currentSelectedDate.getFullYear();
+      const month = currentSelectedDate.getMonth();
+      
+      const monthName = currentSelectedDate.toLocaleString('default', { month: 'long', year: 'numeric' });
+      document.getElementById('selected-month-label').textContent = monthName;
+
+      // Filter records for selected month
+      const filtered = localRecords.filter(item => {
+        if (!item.date) return false;
+        const [rYear, rMonth] = item.date.split('-').map(Number);
+        return rYear === year && (rMonth - 1) === month;
+      });
+
+      const totalCost = filtered.reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
+      const count = filtered.length;
+      const avg = count > 0 ? (totalCost / count) : 0;
+      const currSymbol = appSettings.currency || 'SAR';
+
+      // Update metric cards
+      document.getElementById('stat-total-amount').textContent = `${currSymbol} ${totalCost.toFixed(2)}`;
+      document.getElementById('stat-fill-count').textContent = count;
+      document.getElementById('stat-avg-amount').textContent = `${currSymbol} ${avg.toFixed(2)}`;
+
+      // Render items
+      const listContainer = document.getElementById('entries-list');
+      if (filtered.length === 0) {
+        listContainer.innerHTML = `
+          <div class="text-center py-10 bg-slate-800/30 rounded-2xl border border-slate-800">
+            <svg class="w-10 h-10 text-slate-600 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+            <p class="text-xs font-semibold text-slate-400">No gas fill-ups recorded for ${monthName}</p>
+            <button onclick="switchTab('entry')" class="mt-3 text-xs text-emerald-400 font-bold hover:underline">Add one now</button>
+          </div>
+        `;
+        return;
+      }
+
+      listContainer.innerHTML = filtered.map(item => `
+        <div class="bg-slate-800/50 hover:bg-slate-800 border border-slate-700/60 rounded-2xl p-3.5 flex items-center justify-between transition">
+          <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-xl bg-slate-700/60 flex items-center justify-center text-emerald-400 border border-slate-600/40">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+              </svg>
+            </div>
+            <div>
+              <p class="text-sm font-bold text-slate-100">${item.notes || 'Gas Fill-up'}</p>
+              <div class="flex items-center space-x-2 text-[11px] text-slate-400 mt-0.5">
+                <span>${item.date}</span>
+                <span>•</span>
+                <span>${item.time ? item.time.substring(0, 5) : ''}</span>
+                ${item.odometer && item.odometer !== '-' ? `<span>•</span><span>${item.odometer} km</span>` : ''}
+              </div>
+            </div>
+          </div>
+          <div class="text-right">
+            <span class="text-base font-extrabold font-mono text-emerald-400">${item.currency || currSymbol} ${Number(item.amount).toFixed(2)}</span>
+            <button onclick="deleteEntry('${item.id}')" class="block ml-auto text-[10px] text-slate-500 hover:text-rose-400 mt-0.5">Delete</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function updateGlanceTotal() {
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth();
+
+      const thisMonthTotal = localRecords
+        .filter(item => {
+          if (!item.date) return false;
+          const [y, m] = item.date.split('-').map(Number);
+          return y === currentYear && (m - 1) === currentMonth;
+        })
+        .reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
+
+      document.getElementById('glance-month-total').textContent = `${appSettings.currency || 'SAR'} ${thisMonthTotal.toFixed(2)}`;
+    }
+
+    function deleteEntry(id) {
+      localRecords = localRecords.filter(r => r.id !== id);
+      persistRecords();
+      renderTotalsView();
+      updateGlanceTotal();
+      showToast('Entry removed from local log', 'info');
+    }
+
+    function showToast(message, type = 'success') {
+      toastMsg.textContent = message;
+      if (type === 'error') {
+        toastBody.className = 'flex items-center space-x-2.5 px-4 py-3 rounded-2xl shadow-xl text-xs font-semibold bg-rose-500 text-white';
+        toastIcon.textContent = '✕';
+      } else if (type === 'warning') {
+        toastBody.className = 'flex items-center space-x-2.5 px-4 py-3 rounded-2xl shadow-xl text-xs font-semibold bg-amber-500 text-white';
+        toastIcon.textContent = '⚠';
+      } else {
+        toastBody.className = 'flex items-center space-x-2.5 px-4 py-3 rounded-2xl shadow-xl text-xs font-semibold bg-emerald-500 text-white';
+        toastIcon.textContent = '✓';
+      }
+      
+      toast.classList.remove('hidden');
+      setTimeout(() => {
+        toast.classList.add('hidden');
+      }, 2500);
+    }
+
+    function toggleSettingsModal(show) {
+      const modal = document.getElementById('settings-modal');
+      if (show) modal.classList.remove('hidden');
+      else modal.classList.add('hidden');
+    }
+  </script>
+</body>
+</html>
